@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}
+Login - Campus Hardware Laboratory
+{% endblock %}
+
+{% block content %}
+
+<div class="login-page">
+
+
+<!-- LEFT SIDE: SYSTEM INFORMATION -->
+<div class="login-info">
+
+    <div class="info-content">
+
+        <h2>Campus Hardware Laboratory</h2>
+
+        <p class="info-description">
+            A web-based system for managing campus laboratory
+            hardware inventory and borrowing activities.
+        </p>
+
+        <div class="info-section">
+
+            <div class="info-item">
+                <span class="info-icon">✓</span>
+                <div>
+                    <strong>Hardware Inventory</strong>
+                    <p>View and manage available laboratory components.</p>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <span class="info-icon">✓</span>
+                <div>
+                    <strong>Borrowing Requests</strong>
+                    <p>Submit and monitor hardware borrowing requests.</p>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <span class="info-icon">✓</span>
+                <div>
+                    <strong>Approval Management</strong>
+                    <p>Process borrowing and return requests efficiently.</p>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <span class="info-icon">✓</span>
+                <div>
+                    <strong>Account Security</strong>
+                    <p>Manage your account and password securely.</p>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- RIGHT SIDE: LOGIN PANEL -->
+<div class="login-panel">
+
+    <div class="login-card">
+
+        <div class="login-card-header">
+
+            <div class="login-logo">
+                ▣
+            </div>
+
+            <h2>Welcome Back</h2>
+
+            <p>
+                Sign in to access the laboratory system
+            </p>
+
+        </div>
+
+
+        <form method="POST"
+              action="{{ url_for('login') }}">
+
+            <div class="form-group">
+
+                <label for="username">
+                    Username
+                </label>
+
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    placeholder="Enter your username"
+                    required
+                    autocomplete="username">
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="password">
+                    Password
+                </label>
+
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                    autocomplete="current-password">
+
+
+                <!-- SHOW PASSWORD -->
+                <div style="margin-top: 8px; text-align: left; width: 100%;">
+    <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+        <input
+            type="checkbox"
+            id="showPassword"
+            onclick="togglePassword()">
+        <span>Show password</span>
+    </label>
+</div>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="btn btn-primary login-button">
+
+                Login
+
+            </button>
+
+
+            <!-- LOGIN ERROR / SUCCESS MESSAGE -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+
+                    <div class="flash-container">
+
+                        {% for category, message in messages %}
+
+                            <div class="flash-message {{ category }}">
+                                {{ message }}
+                            </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+            {% endwith %}
+
+        </form>
+
+
+        <div class="login-links">
+
+            <a href="{{ url_for('register') }}">
+                Create an account
+            </a>
+
+            <a href="{{ url_for('reset') }}">
+                Reset / Unlock Password
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+</div>
+
+<!-- SHOW / HIDE PASSWORD SCRIPT -->
+
+<script>
+
+function togglePassword() {
+
+    const passwordField = document.getElementById("password");
+
+    if (passwordField.type === "password") {
+
+        passwordField.type = "text";
+
+    } else {
+
+        passwordField.type = "password";
+
+    }
+
+}
+
+</script>
+
+{% endblock %}

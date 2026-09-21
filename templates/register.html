@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}
+Create Account - Campus Hardware Laboratory
+{% endblock %}
+
+{% block content %}
+
+<div class="login-page">
+
+    <!-- LEFT SIDE: SYSTEM INFORMATION -->
+    <div class="login-info">
+
+        <div class="info-content">
+
+            <h2>Campus Hardware Laboratory</h2>
+
+            <p class="info-description">
+                A web-based system for managing campus laboratory
+                hardware inventory and borrowing activities.
+            </p>
+
+            <div class="info-section">
+
+                <div class="info-item">
+                    <span class="info-icon">✓</span>
+                    <div>
+                        <strong>Hardware Inventory</strong>
+                        <p>View and manage available laboratory components.</p>
+                    </div>
+                </div>
+
+                <div class="info-item">
+                    <span class="info-icon">✓</span>
+                    <div>
+                        <strong>Borrowing Requests</strong>
+                        <p>Submit and monitor hardware borrowing requests.</p>
+                    </div>
+                </div>
+
+                <div class="info-item">
+                    <span class="info-icon">✓</span>
+                    <div>
+                        <strong>Approval Management</strong>
+                        <p>Process borrowing and return requests efficiently.</p>
+                    </div>
+                </div>
+
+                <div class="info-item">
+                    <span class="info-icon">✓</span>
+                    <div>
+                        <strong>Account Security</strong>
+                        <p>Manage your account and password securely.</p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- RIGHT SIDE: REGISTRATION PANEL -->
+    <div class="login-panel">
+
+        <div class="login-card">
+
+            <div class="login-card-header">
+
+                <div class="login-logo">
+                    ▣
+                </div>
+
+                <h2>Create an Account</h2>
+
+                <p>
+                    Register a new account for the laboratory system
+                </p>
+
+            </div>
+
+
+            <!-- FLASH MESSAGES -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+
+                    <div class="flash-container">
+
+                        {% for category, message in messages %}
+
+                            <div class="flash-message {{ category }}">
+                                {{ message }}
+                            </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                {% endif %}
+            {% endwith %}
+
+
+            <form method="POST"
+                  action="{{ url_for('register') }}">
+
+                <!-- USERNAME -->
+                <div class="form-group">
+
+                    <label for="username">
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter your username"
+                        required
+                        autocomplete="username">
+
+                </div>
+
+
+                <!-- EMAIL -->
+                <div class="form-group">
+
+                    <label for="email">
+                        Email
+                    </label>
+
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="Enter your email"
+                        required
+                        autocomplete="email">
+
+                </div>
+
+
+                <!-- PASSWORD -->
+                <div class="form-group">
+
+                    <label for="password">
+                        Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        required
+                        autocomplete="new-password">
+
+                </div>
+
+
+                <!-- CONFIRM PASSWORD -->
+                <div class="form-group">
+
+                    <label for="confirm_password">
+                        Confirm Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        placeholder="Confirm your password"
+                        required
+                        autocomplete="new-password">
+
+                </div>
+
+
+                <!-- ACCOUNT TYPE -->
+                <div class="form-group">
+
+                    <label for="role">
+                        Account Type
+                    </label>
+
+                    <select
+                        id="role"
+                        name="role"
+                        required>
+
+                        <option value="USER">
+                            USER
+                        </option>
+
+                        <option value="ADMIN">
+                            ADMIN
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- REGISTER BUTTON -->
+                <button
+                    type="submit"
+                    class="btn btn-primary login-button">
+
+                    Create Account
+
+                </button>
+
+            </form>
+
+
+            <!-- LOGIN LINK -->
+            <div class="login-links">
+
+                <a href="{{ url_for('login') }}">
+                    Already have an account? Login
+                </a>
+
+                <a href="{{ url_for('reset') }}">
+                    Reset / Unlock Password
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

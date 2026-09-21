@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>
+        Campus Hardware Inventory System
+    </title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+
+        /* ==================================================
+           DASHBOARD LAYOUT
+           ================================================== */
+
+        .dashboard-container {
+            width: 95%;
+            max-width: 1400px;
+            margin: 30px auto;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .dashboard-header h1 {
+            margin: 0;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .role-admin {
+            background-color: #f8d7da;
+            color: #842029;
+        }
+
+        .role-user {
+            background-color: #d1e7dd;
+            color: #0f5132;
+        }
+
+
+        /* ==================================================
+           SECTION
+           ================================================== */
+
+        .dashboard-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .dashboard-section h2 {
+            margin-top: 0;
+            margin-bottom: 18px;
+        }
+
+        .dashboard-section h3 {
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+
+        /* ==================================================
+           CARDS
+           ================================================== */
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(
+                auto-fit,
+                minmax(200px, 1fr)
+            );
+            gap: 18px;
+            margin-bottom: 25px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .dashboard-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 15px;
+        }
+
+        .card-number {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+
+        /* ==================================================
+           BUTTONS
+           ================================================== */
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 9px 16px;
+            border: none;
+            border-radius: 7px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background-color: #00D9A5;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #198754;
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+
+        /* ==================================================
+           FORMS
+           ================================================== */
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(
+                auto-fit,
+                minmax(220px, 1fr)
+            );
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+
+        /* ==================================================
+           TABLE
+           ================================================== */
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            font-weight: 700;
+            background-color: #f8f9fa;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+
+        /* ==================================================
+           STATUS BADGES
+           ================================================== */
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-in-stock {
+            color: #0f5132;
+            background-color: #d1e7dd;
+            border: 1px solid #a3cfbb;
+        }
+
+        .status-low-stock {
+            color: #664d03;
+            background-color: #fff3cd;
+            border: 1px solid #ffecb5;
+        }
+
+        .status-out-stock {
+            color: #842029;
+            background-color: #f8d7da;
+            border: 1px solid #f1aeb5;
+        }
+
+        .status-approved {
+            color: #0f5132;
+            background-color: #d1e7dd;
+            border: 1px solid #a3cfbb;
+        }
+
+        .status-pending {
+            color: #664d03;
+            background-color: #fff3cd;
+            border: 1px solid #ffecb5;
+        }
+
+        .status-rejected {
+            color: #842029;
+            background-color: #f8d7da;
+            border: 1px solid #f1aeb5;
+        }
+
+        .status-return-requested {
+            color: #664d03;
+            background-color: #fff3cd;
+            border: 1px solid #ffecb5;
+        }
+
+        .status-returned {
+            color: #842029;
+            background-color: #f8d7da;
+            border: 1px solid #f1aeb5;
+        }
+
+
+        /* ==================================================
+           FLASH MESSAGES
+           ================================================== */
+
+        .flash-container {
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 12px 16px;
+            border-radius: 7px;
+            margin-bottom: 10px;
+        }
+
+        .flash-success {
+            background-color: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .flash-danger {
+            background-color: #f8d7da;
+            color: #842029;
+        }
+
+        .flash-warning {
+            background-color: #fff3cd;
+            color: #664d03;
+        }
+
+
+        /* ==================================================
+           EMPTY MESSAGE
+           ================================================== */
+
+        .empty-message {
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+        }
+
+
+        /* ==================================================
+           RESPONSIVE
+           ================================================== */
+
+        @media (max-width: 768px) {
+
+            .dashboard-container {
+                width: 92%;
+            }
+
+            .dashboard-header {
+                align-items: flex-start;
+            }
+
+            .user-info {
+                text-align: left;
+            }
+
+            .dashboard-section {
+                padding: 18px;
+            }
+
+            th,
+            td {
+                padding: 9px;
+                font-size: 13px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="dashboard-container">
+
+
+    <!-- ==================================================
+         HEADER
+         ================================================== -->
+
+    <div class="dashboard-header">
+
+        <div>
+
+            <h1>
+                Hello! Good Day :)
+            </h1>
+
+            <p>
+                Laboratory Hardware Management
+            </p>
+
+        </div>
+
+
+        <div class="user-info">
+
+            <strong>
+                {{ session.get("username") }}
+            </strong>
+
+            {% if session.get("role") == "ADMIN" %}
+
+                <span class="role-badge role-admin">
+                    ADMIN
+                </span>
+
+            {% else %}
+
+                <span class="role-badge role-user">
+                    USER
+                </span>
+
+            {% endif %}
+
+
+            <div class="button-row"
+                 style="margin-top: 10px;">
+
+                <a
+                    href="{{ url_for('logout') }}"
+                    class="btn btn-danger"
+                >
+                    Logout
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         FLASH MESSAGES
+         ================================================== -->
+
+    <div class="flash-container">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+
+            {% if messages %}
+
+                {% for category, message in messages %}
+
+                    <div class="flash-message
+
+                        {% if category == 'success' %}
+
+                            flash-success
+
+                        {% elif category == 'warning' %}
+
+                            flash-warning
+
+                        {% else %}
+
+                            flash-danger
+
+                        {% endif %}
+
+                    ">
+
+                        {{ message }}
+
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+    </div>
+
+
+    <!-- ==================================================
+         USER DASHBOARD
+         ================================================== -->
+
+    {% if session.get("role") == "USER" %}
+
+
+        <!-- USER CARDS -->
+
+        <div class="cards-grid">
+
+            <div class="dashboard-card">
+
+                <h3>
+                    Total Stocks
+                </h3>
+
+                <div class="card-number">
+                    {{ total_stocks }}
+                </div>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <h3>
+                    Active Borrowings
+                </h3>
+
+                <div class="card-number">
+                    {{ active_loans|length }}
+                </div>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <h3>
+                    Pending Requests
+                </h3>
+
+                <div class="card-number">
+                    {{ pending_borrow_requests|length }}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==================================================
+             HARDWARE CATALOG
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Hardware Catalog
+            </h2>
+
+
+            <form
+                method="GET"
+                action="{{ url_for('dashboard') }}"
+            >
+
+                <div class="form-grid">
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Search Hardware
+                        </label>
+
+                        <input
+                            type="text"
+                            name="search"
+                            value="{{ search_text }}"
+                            placeholder="Search hardware name"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Category
+                        </label>
+
+                        <select name="category">
+
+                            <option value="All Categories">
+                                All Categories
+                            </option>
+
+                            {% for category in categories %}
+
+                                <option
+                                    value="{{ category }}"
+                                    {% if selected_category == category %}
+                                        selected
+                                    {% endif %}
+                                >
+                                    {{ category }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Status
+                        </label>
+
+                        <select name="status">
+
+                            <option value="All Statuses">
+                                All Statuses
+                            </option>
+
+                            <option
+                                value="In Stock"
+                                {% if selected_status == "In Stock" %}
+                                    selected
+                                {% endif %}
+                            >
+                                In Stock
+                            </option>
+
+                            <option
+                                value="Low Stock"
+                                {% if selected_status == "Low Stock" %}
+                                    selected
+                                {% endif %}
+                            >
+                                Low Stock
+                            </option>
+
+                            <option
+                                value="Out of Stock"
+                                {% if selected_status == "Out of Stock" %}
+                                    selected
+                                {% endif %}
+                            >
+                                Out of Stock
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div
+                        class="form-group"
+                        style="justify-content: flex-end;"
+                    >
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                        >
+                            Search / Filter
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+
+            <br>
+
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                ID
+                            </th>
+
+                            <th>
+                                Hardware
+                            </th>
+
+                            <th>
+                                Category
+                            </th>
+
+                            <th>
+                                Quantity
+                            </th>
+
+                            <th>
+                                Available
+                            </th>
+
+                            <th>
+                                Unit Price
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for item in hardware %}
+
+                            <tr>
+
+                                <td>
+                                    {{ item[0] }}
+                                </td>
+
+                                <td>
+                                    {{ item[1] }}
+                                </td>
+
+                                <td>
+                                    {{ item[2] }}
+                                </td>
+
+                                <td>
+                                    {{ item[3] }}
+                                </td>
+
+                                <td>
+                                    {{ item[4] }}
+                                </td>
+
+                                <td>
+                                    ₱{{ "%.2f"|format(item[5]) }}
+                                </td>
+
+                                <td>
+
+                                    {% if item[6] == "In Stock" %}
+
+                                        <span
+                                            class="status-badge status-in-stock"
+                                        >
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% elif item[6] == "Low Stock" %}
+
+                                        <span
+                                            class="status-badge status-low-stock"
+                                        >
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% elif item[6] == "Out of Stock" %}
+
+                                        <span
+                                            class="status-badge status-out-stock"
+                                        >
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="status-badge">
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% endif %}
+
+                                </td>
+
+                            </tr>
+
+                        {% else %}
+
+                            <tr>
+
+                                <td
+                                    colspan="7"
+                                    class="empty-message"
+                                >
+                                    No hardware records found.
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==================================================
+             BORROW HARDWARE
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Borrow Hardware
+            </h2>
+
+
+            <form
+                method="POST"
+                action="{{ url_for('borrow') }}"
+            >
+
+                <div class="form-grid">
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Student Number
+                        </label>
+
+                        <input
+                            type="text"
+                            name="student_number"
+                            required
+                            placeholder="Enter student number"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Hardware
+                        </label>
+
+                        <select
+                            name="item_id"
+                            required
+                        >
+
+                            <option value="">
+                                Select Hardware
+                            </option>
+
+                            {% for item in hardware %}
+
+                                {% if item[4] > 0 %}
+
+                                    <option
+                                        value="{{ item[0] }}"
+                                    >
+                                        {{ item[1] }}
+                                        —
+                                        {{ item[4] }} available
+                                    </option>
+
+                                {% endif %}
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Quantity
+                        </label>
+
+                        <input
+                            type="number"
+                            name="quantity"
+                            min="1"
+                            required
+                            placeholder="Enter quantity"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Course
+                        </label>
+
+                        <input
+                            type="text"
+                            name="course"
+                            required
+                            placeholder="Enter course"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Borrow Date
+                        </label>
+
+                        <input
+                            type="date"
+                            name="borrow_date"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Expected Return Date
+                        </label>
+
+                        <input
+                            type="date"
+                            name="expected_return_date"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label>
+                            Purpose
+                        </label>
+
+                        <textarea
+                            name="purpose"
+                            required
+                            placeholder="Enter the purpose of borrowing"
+                        ></textarea>
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                        >
+                            Submit Borrow Request
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+
+        <!-- ==================================================
+             CURRENT BORROWED ITEMS
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Current Borrowed Items
+            </h2>
+
+
+            {% if active_loans %}
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Request ID
+                                </th>
+
+                                <th>
+                                    Item
+                                </th>
+
+                                <th>
+                                    Purpose
+                                </th>
+
+                                <th>
+                                    Borrow Date
+                                </th>
+
+                                <th>
+                                    Expected Return
+                                </th>
+
+                                <th>
+                                    Action
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            {% for borrow_request in active_loans %}
+
+                                <tr>
+
+                                    <td>
+                                        {{ borrow_request["request_id"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        {% for item in borrow_request["items"] %}
+
+                                            <div>
+                                                {{ item[2] }} pcs {{ item[1] }}
+                                            </div>
+
+                                        {% endfor %}
+
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["purpose"] }}
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["borrow_date"] }}
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["expected_return_date"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for('return_request') }}"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="request_id"
+                                                value="{{ borrow_request['request_id'] }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-warning"
+                                            >
+                                                Request Return
+                                            </button>
+
+                                        </form>
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-message">
+                    You currently have no borrowed hardware.
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- ==================================================
+             MY BORROW HISTORY
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                My Borrow History
+            </h2>
+
+
+            {% if history %}
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Request ID
+                                </th>
+
+                                <th>
+                                    Items
+                                </th>
+
+                                <th>
+                                    Purpose
+                                </th>
+
+                                <th>
+                                    Course
+                                </th>
+
+                                <th>
+                                    Borrow Date
+                                </th>
+
+                                <th>
+                                    Expected Return
+                                </th>
+
+                                <th>
+                                    Status
+                                </th>
+
+                                <th>
+                                    Requested
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            {% for borrow_request in history %}
+
+                                <tr>
+
+                                    <td>
+                                        {{ borrow_request["request_id"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        {% for item in borrow_request["items"] %}
+
+                                            <div>
+                                                {{ item[2] }} pcs {{ item[1] }}
+                                            </div>
+
+                                        {% endfor %}
+
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["purpose"] }}
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["course"] }}
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["borrow_date"] }}
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["expected_return_date"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        {% if borrow_request["status"] == "APPROVED" %}
+
+                                            <span
+                                                class="status-badge status-approved"
+                                            >
+                                                APPROVED
+                                            </span>
+
+                                        {% elif borrow_request["status"] == "PENDING" %}
+
+                                            <span
+                                                class="status-badge status-pending"
+                                            >
+                                                PENDING
+                                            </span>
+
+                                        {% elif borrow_request["status"] == "RETURN_REQUESTED" %}
+
+                                            <span
+                                                class="status-badge status-return-requested"
+                                            >
+                                                RETURN REQUESTED
+                                            </span>
+
+                                        {% elif borrow_request["status"] == "RETURNED" %}
+
+                                            <span
+                                                class="status-badge status-returned"
+                                            >
+                                                RETURNED
+                                            </span>
+
+                                        {% elif borrow_request["status"] == "REJECTED" %}
+
+                                            <span
+                                                class="status-badge status-rejected"
+                                            >
+                                                REJECTED
+                                            </span>
+
+                                        {% else %}
+
+                                            <span class="status-badge">
+                                                {{ borrow_request["status"] }}
+                                            </span>
+
+                                        {% endif %}
+
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["requested_at"] }}
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-message">
+                    No borrowing history found.
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    {% endif %}
+
+
+    <!-- ==================================================
+         ADMIN DASHBOARD
+         ================================================== -->
+
+    {% if session.get("role") == "ADMIN" %}
+
+
+        <!-- ADMIN CARDS -->
+
+        <div class="cards-grid">
+
+            <div class="dashboard-card">
+
+                <h3>
+                    Total Stocks
+                </h3>
+
+                <div class="card-number">
+                    {{ total_stocks }}
+                </div>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <h3>
+                    Pending Borrow Requests
+                </h3>
+
+                <div class="card-number">
+                    {{ pending_borrows|length }}
+                </div>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <h3>
+                    Pending Return Requests
+                </h3>
+
+                <div class="card-number">
+                    {{ pending_returns|length }}
+                </div>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <h3>
+                    Password Reset Requests
+                </h3>
+
+                <div class="card-number">
+                    {{ pending_resets|length }}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==================================================
+             INVENTORY MANAGEMENT
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Inventory Management
+            </h2>
+
+
+            <!-- ADMIN SEARCH AND FILTER -->
+
+            <form
+                method="GET"
+                action="{{ url_for('dashboard') }}"
+            >
+
+                <div class="form-grid">
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Search Hardware
+                        </label>
+
+                        <input
+                            type="text"
+                            name="search"
+                            value="{{ search_text }}"
+                            placeholder="Search hardware name"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Category
+                        </label>
+
+                        <select name="category">
+
+                            <option value="All Categories">
+                                All Categories
+                            </option>
+
+                            {% for category in categories %}
+
+                                <option
+                                    value="{{ category }}"
+                                    {% if selected_category == category %}
+                                        selected
+                                    {% endif %}
+                                >
+                                    {{ category }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Status
+                        </label>
+
+                        <select name="status">
+
+                            <option value="All Statuses">
+                                All Statuses
+                            </option>
+
+                            <option
+                                value="In Stock"
+                                {% if selected_status == "In Stock" %}
+                                    selected
+                                {% endif %}
+                            >
+                                In Stock
+                            </option>
+
+                            <option
+                                value="Low Stock"
+                                {% if selected_status == "Low Stock" %}
+                                    selected
+                                {% endif %}
+                            >
+                                Low Stock
+                            </option>
+
+                            <option
+                                value="Out of Stock"
+                                {% if selected_status == "Out of Stock" %}
+                                    selected
+                                {% endif %}
+                            >
+                                Out of Stock
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div
+                        class="form-group"
+                        style="justify-content: flex-end;"
+                    >
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                        >
+                            Search / Filter
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+
+            <br>
+
+
+            <div class="button-row">
+
+                <a
+                    href="{{ url_for('export_csv') }}"
+                    class="btn btn-secondary"
+                >
+                    Export CSV
+                </a>
+
+            </div>
+
+
+            <br>
+
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                ID
+                            </th>
+
+                            <th>
+                                Hardware
+                            </th>
+
+                            <th>
+                                Category
+                            </th>
+
+                            <th>
+                                Total Quantity
+                            </th>
+
+                            <th>
+                                Available
+                            </th>
+
+                            <th>
+                                Unit Price
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                            <th>
+                                Action
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for item in hardware %}
+
+                            <tr>
+
+                                <td>
+                                    {{ item[0] }}
+                                </td>
+
+                                <td>
+                                    {{ item[1] }}
+                                </td>
+
+                                <td>
+                                    {{ item[2] }}
+                                </td>
+
+                                <td>
+                                    {{ item[3] }}
+                                </td>
+
+                                <td>
+                                    {{ item[4] }}
+                                </td>
+
+                                <td>
+                                    ₱{{ "%.2f"|format(item[5]) }}
+                                </td>
+
+
+                                <td>
+
+                                    {% if item[6] == "In Stock" %}
+
+                                        <span
+                                            class="status-badge status-in-stock"
+                                        >
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% elif item[6] == "Low Stock" %}
+
+                                        <span
+                                            class="status-badge status-low-stock"
+                                        >
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% elif item[6] == "Out of Stock" %}
+
+                                        <span
+                                            class="status-badge status-out-stock"
+                                        >
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="status-badge">
+                                            {{ item[6] }}
+                                        </span>
+
+                                    {% endif %}
+
+                                </td>
+
+
+                                <!-- ==================================================
+                                     ACTION COLUMN
+                                     ================================================== -->
+
+                                <td>
+
+                                    <div class="button-row">
+
+
+                                        <!-- UPDATE HARDWARE -->
+
+                                        <a
+                                            href="{{ url_for('dashboard', edit_id=item[0]) }}"
+                                            class="btn btn-primary"
+                                        >
+                                            Update
+                                        </a>
+
+
+                                        <!-- DELETE HARDWARE -->
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for('admin_delete') }}"
+                                            onsubmit="return confirm('Delete this hardware item?');"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="item_id"
+                                                value="{{ item[0] }}"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-danger"
+                                            >
+                                                Delete
+                                            </button>
+
+                                        </form>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        {% else %}
+
+                            <tr>
+
+                                <td
+                                    colspan="8"
+                                    class="empty-message"
+                                >
+                                    No hardware records found.
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==================================================
+             ADD NEW HARDWARE
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Add New Hardware
+            </h2>
+
+
+            <form
+                method="POST"
+                action="{{ url_for('admin_add') }}"
+            >
+
+                <div class="form-grid">
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Hardware Name
+                        </label>
+
+                        <input
+                            type="text"
+                            name="item_name"
+                            required
+                            placeholder="Example: LED Green"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Category
+                        </label>
+
+                        <input
+                            type="text"
+                            name="category"
+                            required
+                            placeholder="Example: Electronic Components"
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Quantity
+                        </label>
+
+                        <input
+                            type="number"
+                            name="quantity"
+                            min="1"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Unit Price
+                        </label>
+
+                        <input
+                            type="number"
+                            name="unit_price"
+                            min="0"
+                            step="0.01"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <button
+                            type="submit"
+                            class="btn btn-success"
+                        >
+                            Add Hardware
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+
+        <!-- ==================================================
+             UPDATE HARDWARE
+             ================================================== -->
+
+        {% if edit_item %}
+
+            <div class="dashboard-section">
+
+                <h2>
+                    Update Hardware
+                </h2>
+
+
+                <form
+                    method="POST"
+                    action="{{ url_for('admin_update') }}"
+                >
+
+                    <input
+                        type="hidden"
+                        name="item_id"
+                        value="{{ edit_item[0] }}"
+                    >
+
+
+                    <div class="form-grid">
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Hardware Name
+                            </label>
+
+                            <input
+                                type="text"
+                                name="item_name"
+                                value="{{ edit_item[1] }}"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Category
+                            </label>
+
+                            <input
+                                type="text"
+                                name="category"
+                                value="{{ edit_item[2] }}"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Quantity
+                            </label>
+
+                            <input
+                                type="number"
+                                name="quantity"
+                                value="{{ edit_item[3] }}"
+                                min="1"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Available Stock
+                            </label>
+
+                            <input
+                                type="number"
+                                name="available_quantity"
+                                value="{{ edit_item[4] }}"
+                                min="0"
+                                max="{{ edit_item[3] }}"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Unit Price
+                            </label>
+
+                            <input
+                                type="number"
+                                name="unit_price"
+                                value="{{ edit_item[5] }}"
+                                min="0"
+                                step="0.01"
+                                required
+                            >
+
+                        </div>
+
+
+                        <div class="form-group full-width">
+
+                            <button
+                                type="submit"
+                                class="btn btn-success"
+                            >
+                                Update Hardware
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        {% endif %}
+
+
+        <!-- ==================================================
+             PENDING BORROW REQUESTS
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Pending Borrow Requests
+            </h2>
+
+
+            {% if pending_borrows %}
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Request ID
+                                </th>
+
+                                <th>
+                                    Username
+                                </th>
+
+                                <th>
+                                    Student Number
+                                </th>
+
+                                <th>
+                                    Items
+                                </th>
+
+                                <th>
+                                    Purpose
+                                </th>
+
+                                <th>
+                                    Course
+                                </th>
+
+                                <th>
+                                    Borrow Date
+                                </th>
+
+                                <th>
+                                    Expected Return
+                                </th>
+
+                                <th>
+                                    Action
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            {% for borrow_request in pending_borrows %}
+
+                                <tr>
+
+                                    <td>
+                                        {{ borrow_request["request_id"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["username"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["student_number"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        {% for item in borrow_request["items"] %}
+
+                                            <div>
+                                                {{ item[2] }} pcs {{ item[1] }}
+                                            </div>
+
+                                        {% endfor %}
+
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["purpose"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["course"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["borrow_date"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["expected_return_date"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        <div class="button-row">
+
+
+                                            <!-- APPROVE BORROW -->
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for('admin_borrow_action') }}"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="request_id"
+                                                    value="{{ borrow_request['request_id'] }}"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="APPROVE"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-success"
+                                                >
+                                                    Approve
+                                                </button>
+
+                                            </form>
+
+
+                                            <!-- REJECT BORROW -->
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for('admin_borrow_action') }}"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="request_id"
+                                                    value="{{ borrow_request['request_id'] }}"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="REJECT"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-danger"
+                                                >
+                                                    Reject
+                                                </button>
+
+                                            </form>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-message">
+                    No pending borrow requests.
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- ==================================================
+             PENDING RETURN REQUESTS
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Pending Return Requests
+            </h2>
+
+
+            {% if pending_returns %}
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Request ID
+                                </th>
+
+                                <th>
+                                    Username
+                                </th>
+
+                                <th>
+                                    Student Number
+                                </th>
+
+                                <th>
+                                    Items
+                                </th>
+
+                                <th>
+                                    Return Requested
+                                </th>
+
+                                <th>
+                                    Action
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            {% for borrow_request in pending_returns %}
+
+                                <tr>
+
+                                    <td>
+                                        {{ borrow_request["request_id"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["username"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["student_number"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        {% for item in borrow_request["items"] %}
+
+                                            <div>
+                                                {{ item[2] }} pcs {{ item[1] }}
+                                            </div>
+
+                                        {% endfor %}
+
+                                    </td>
+
+
+                                    <td>
+                                        {{ borrow_request["return_requested_at"] }}
+                                    </td>
+
+
+                                    <td>
+
+                                        <div class="button-row">
+
+
+                                            <!-- APPROVE RETURN -->
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for('admin_return_action') }}"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="request_id"
+                                                    value="{{ borrow_request['request_id'] }}"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="APPROVE"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-success"
+                                                >
+                                                    Approve
+                                                </button>
+
+                                            </form>
+
+
+                                            <!-- REJECT RETURN -->
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for('admin_return_action') }}"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="request_id"
+                                                    value="{{ borrow_request['request_id'] }}"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="REJECT"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-danger"
+                                                >
+                                                    Reject
+                                                </button>
+
+                                            </form>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-message">
+                    No pending return requests.
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- ==================================================
+             PASSWORD RESET REQUESTS
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Password Reset Requests
+            </h2>
+
+
+            {% if pending_resets %}
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Request ID
+                                </th>
+
+                                <th>
+                                    Username
+                                </th>
+
+                                <th>
+                                    Email
+                                </th>
+
+                                <th>
+                                    Requested At
+                                </th>
+
+                                <th>
+                                    Status
+                                </th>
+
+                                <th>
+                                    Action
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            {% for reset_request in pending_resets %}
+
+                                <tr>
+
+                                    <td>
+                                        {{ reset_request[0] }}
+                                    </td>
+
+                                    <td>
+                                        {{ reset_request[1] }}
+                                    </td>
+
+                                    <td>
+                                        {{ reset_request[2] }}
+                                    </td>
+
+                                    <td>
+                                        {{ reset_request[3] }}
+                                    </td>
+
+                                    <td>
+
+                                        <span
+                                            class="status-badge status-pending"
+                                        >
+                                            PENDING
+                                        </span>
+
+                                    </td>
+
+
+                                    <td>
+
+                                        <div class="button-row">
+
+
+                                            <!-- APPROVE RESET -->
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for('admin_reset_action') }}"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="request_id"
+                                                    value="{{ reset_request[0] }}"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="APPROVE"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-success"
+                                                >
+                                                    Approve
+                                                </button>
+
+                                            </form>
+
+
+                                            <!-- REJECT RESET -->
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for('admin_reset_action') }}"
+                                            >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="request_id"
+                                                    value="{{ reset_request[0] }}"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="REJECT"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-danger"
+                                                >
+                                                    Reject
+                                                </button>
+
+                                            </form>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-message">
+                    No pending password reset requests.
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    {% endif %}
+
+
+    <!-- ==================================================
+         MY PROFILE & SECURITY
+         AVAILABLE FOR BOTH USER AND ADMIN
+         ================================================== -->
+
+    {% if session.get("role") == "USER"
+          or session.get("role") == "ADMIN" %}
+
+        <div class="dashboard-section">
+
+            <h2>
+                My Profile & Security
+            </h2>
+
+            <h3>
+                Change Password
+            </h3>
+
+
+            <form
+                method="POST"
+                action="{{ url_for('change_password') }}"
+            >
+
+                <div class="form-grid">
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Current Password
+                        </label>
+
+                        <input
+                            type="password"
+                            name="current_password"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            New Password
+                        </label>
+
+                        <input
+                            type="password"
+                            name="new_password"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Confirm New Password
+                        </label>
+
+                        <input
+                            type="password"
+                            name="confirm_password"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div
+                        class="form-group"
+                        style="justify-content: flex-end;"
+                    >
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                        >
+                            Change Password
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+</body>
+
+</html>

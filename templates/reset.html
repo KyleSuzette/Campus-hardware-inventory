@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}
+Password Reset - Campus Hardware Laboratory
+{% endblock %}
+
+{% block content %}
+
+<div class="auth-container">
+
+    <div class="auth-card">
+
+        <h2>Password Reset</h2>
+
+        <p class="subtitle">
+            Request access to reset your account password
+        </p>
+
+
+        <form method="POST" action="{{ url_for('reset') }}">
+
+            <div class="form-group">
+                <label for="username">
+                    Username
+                </label>
+
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    required>
+            </div>
+
+
+            <div class="form-group">
+                <label for="email">
+                    Email Address
+                </label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required>
+            </div>
+
+
+            <div class="form-group">
+                <label for="new_password">
+                    New Password
+                </label>
+
+                <input
+                    type="password"
+                    id="new_password"
+                    name="new_password"
+                    required>
+            </div>
+
+
+            <div class="form-group">
+                <label for="confirm_password">
+                    Confirm New Password
+                </label>
+
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    required>
+            </div>
+
+
+            <button type="submit" class="btn btn-primary">
+                Submit Reset Request
+            </button>
+
+        </form>
+
+
+        <div class="auth-links">
+
+            <a href="{{ url_for('login') }}">
+                Back to Login
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
