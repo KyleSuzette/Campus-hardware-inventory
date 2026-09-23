@@ -1,5 +1,6 @@
 import bcrypt
 import logging
+import psycopg
 
 from datetime import datetime
 
@@ -25,81 +26,90 @@ class ResetController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT username
-            FROM users
-            WHERE LOWER(email) = LOWER(?)
-        """, (email,))
+        try:
 
-        user = cursor.fetchone()
+            cursor.execute("""
+                SELECT username
+                FROM users
+                WHERE LOWER(email) = LOWER(%s)
+            """, (email,))
 
-        if not user:
+            user = cursor.fetchone()
 
-            conn.close()
+            if not user:
 
-            return False, (
-                "No account is registered "
-                "with this email address."
+                return False, (
+                    "No account is registered "
+                    "with this email address."
+                )
+
+            username = user[0]
+
+            cursor.execute("""
+                SELECT request_id
+                FROM password_reset_requests
+                WHERE LOWER(email) = LOWER(%s)
+                AND status = 'PENDING'
+            """, (email,))
+
+            if cursor.fetchone():
+
+                return False, (
+                    "A reset request is already pending "
+                    "ADMIN approval."
+                )
+
+            requested_at = datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
 
-        username = user[0]
-
-        cursor.execute("""
-            SELECT request_id
-            FROM password_reset_requests
-            WHERE LOWER(email) = LOWER(?)
-            AND status = 'PENDING'
-        """, (email,))
-
-        if cursor.fetchone():
-
-            conn.close()
-
-            return False, (
-                "A reset request is already pending "
-                "ADMIN approval."
-            )
-
-        requested_at = datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-
-        cursor.execute("""
-            INSERT INTO password_reset_requests
-            (
+            cursor.execute("""
+                INSERT INTO password_reset_requests
+                (
+                    username,
+                    email,
+                    requested_at,
+                    status
+                )
+                VALUES (%s, %s, %s, 'PENDING')
+            """, (
                 username,
                 email,
-                requested_at,
-                status
+                requested_at
+            ))
+
+            conn.commit()
+
+            logging.info(
+                f"Password reset request: {username}"
             )
-            VALUES (?, ?, ?, 'PENDING')
-        """, (
-            username,
-            email,
-            requested_at
-        ))
 
-        conn.commit()
-        conn.close()
+            return True, (
+                "Reset request submitted.\n\n"
+                "An ADMIN must approve the request "
+                "before the password can be changed."
+            )
 
-        logging.info(
-            f"Password reset request: {username}"
-        )
+        except psycopg.Error as e:
 
-        return True, (
-            "Reset request submitted.\n\n"
-            "An ADMIN must approve the request "
-            "before the password can be changed."
-        )
+            conn.rollback()
+
+            logging.error(
+                f"Password reset request database error: {e}"
+            )
+
+            return False, (
+                "Failed to submit reset request "
+                "due to a database error."
+            )
+
+        finally:
+
+            cursor.close()
+            conn.close()
 
     # ======================================================
     # CHECK FOR AN APPROVED (NOT YET COMPLETED) REQUEST
-    # ======================================================
-    #
-    # Used by AuthView's Reset / Unlock tab to decide whether
-    # the "Submit" button should file a new pending request
-    # or actually perform the password reset now that an
-    # ADMIN has approved one.
     # ======================================================
 
     def has_approved_request(self, email):
@@ -109,20 +119,33 @@ class ResetController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT request_id
-            FROM password_reset_requests
-            WHERE LOWER(email) = LOWER(?)
-            AND status = 'APPROVED'
-            ORDER BY request_id DESC
-            LIMIT 1
-        """, (email,))
+        try:
 
-        row = cursor.fetchone()
+            cursor.execute("""
+                SELECT request_id
+                FROM password_reset_requests
+                WHERE LOWER(email) = LOWER(%s)
+                AND status = 'APPROVED'
+                ORDER BY request_id DESC
+                LIMIT 1
+            """, (email,))
 
-        conn.close()
+            row = cursor.fetchone()
 
-        return row is not None
+            return row is not None
+
+        except psycopg.Error as e:
+
+            logging.error(
+                f"Approved reset request check error: {e}"
+            )
+
+            return False
+
+        finally:
+
+            cursor.close()
+            conn.close()
 
     # ======================================================
     # PERFORM RESET
@@ -151,75 +174,89 @@ class ResetController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT username
-            FROM users
-            WHERE LOWER(email) = LOWER(?)
-        """, (email,))
+        try:
 
-        user = cursor.fetchone()
+            cursor.execute("""
+                SELECT username
+                FROM users
+                WHERE LOWER(email) = LOWER(%s)
+            """, (email,))
 
-        if not user:
+            user = cursor.fetchone()
 
-            conn.close()
+            if not user:
 
-            return False, "Account not found."
+                return False, "Account not found."
 
-        username = user[0]
+            username = user[0]
 
-        cursor.execute("""
-            SELECT request_id
-            FROM password_reset_requests
-            WHERE LOWER(email) = LOWER(?)
-            AND status = 'APPROVED'
-            ORDER BY request_id DESC
-            LIMIT 1
-        """, (email,))
+            cursor.execute("""
+                SELECT request_id
+                FROM password_reset_requests
+                WHERE LOWER(email) = LOWER(%s)
+                AND status = 'APPROVED'
+                ORDER BY request_id DESC
+                LIMIT 1
+            """, (email,))
 
-        approved = cursor.fetchone()
+            approved = cursor.fetchone()
 
-        if not approved:
+            if not approved:
 
-            conn.close()
+                return False, (
+                    "No approved reset request was found."
+                )
 
-            return False, (
-                "No approved reset request was found."
+            password_hash = bcrypt.hashpw(
+                new_password.encode("utf-8"),
+                bcrypt.gensalt()
+            ).decode("utf-8")
+
+            cursor.execute("""
+                UPDATE users
+                SET
+                    password_hash = %s,
+                    failed_attempts = 0,
+                    is_locked = 0
+                WHERE username = %s
+            """, (
+                password_hash,
+                username
+            ))
+
+            cursor.execute("""
+                UPDATE password_reset_requests
+                SET status = 'COMPLETED'
+                WHERE request_id = %s
+            """, (approved[0],))
+
+            conn.commit()
+
+            logging.info(
+                f"Password reset completed: {username}"
             )
 
-        password_hash = bcrypt.hashpw(
-            new_password.encode("utf-8"),
-            bcrypt.gensalt()
-        ).decode("utf-8")
+            return True, (
+                "Password reset successful.\n"
+                "Your account has been unlocked."
+            )
 
-        cursor.execute("""
-            UPDATE users
-            SET
-                password_hash = ?,
-                failed_attempts = 0,
-                is_locked = 0
-            WHERE username = ?
-        """, (
-            password_hash,
-            username
-        ))
+        except psycopg.Error as e:
 
-        cursor.execute("""
-            UPDATE password_reset_requests
-            SET status = 'COMPLETED'
-            WHERE request_id = ?
-        """, (approved[0],))
+            conn.rollback()
 
-        conn.commit()
-        conn.close()
+            logging.error(
+                f"Password reset database error: {e}"
+            )
 
-        logging.info(
-            f"Password reset completed: {username}"
-        )
+            return False, (
+                "Password reset failed due to a database error."
+            )
 
-        return True, (
-            "Password reset successful.\n"
-            "Your account has been unlocked."
-        )
+        finally:
+
+            cursor.close()
+            conn.close()
 
     # ======================================================
     # ADMIN REVIEW
@@ -232,11 +269,19 @@ class ResetController:
         admin_username
     ):
 
-        status = (
-            "APPROVED"
-            if action == "approve"
-            else "REJECTED"
-        )
+        # Convert the action to a consistent format.
+        # This prevents "APPROVE" from accidentally
+        # being treated as REJECTED.
+        action = str(action).strip().upper()
+
+        if action == "APPROVE":
+            status = "APPROVED"
+
+        elif action == "REJECT":
+            status = "REJECTED"
+
+        else:
+            return False, "Invalid reset review action."
 
         reviewed_at = datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
@@ -245,33 +290,61 @@ class ResetController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            UPDATE password_reset_requests
-            SET
-                status = ?,
-                reviewed_at = ?,
-                reviewed_by = ?
-            WHERE request_id = ?
-            AND status = 'PENDING'
-        """, (
-            status,
-            reviewed_at,
-            admin_username,
-            request_id
-        ))
+        try:
 
-        conn.commit()
-        conn.close()
+            cursor.execute("""
+                UPDATE password_reset_requests
+                SET
+                    status = %s,
+                    reviewed_at = %s,
+                    reviewed_by = %s
+                WHERE request_id = %s
+                AND status = 'PENDING'
+            """, (
+                status,
+                reviewed_at,
+                admin_username,
+                request_id
+            ))
 
-        logging.info(
-            f"ADMIN {admin_username} "
-            f"{status} reset request {request_id}"
-        )
+            if cursor.rowcount != 1:
 
-        return True, (
-            f"Request {request_id} "
-            f"marked as {status}."
-        )
+                conn.rollback()
+
+                return False, (
+                    "Reset request was not found "
+                    "or has already been reviewed."
+                )
+
+            conn.commit()
+
+            logging.info(
+                f"ADMIN {admin_username} "
+                f"{status} reset request {request_id}"
+            )
+
+            return True, (
+                f"Request {request_id} "
+                f"marked as {status}."
+            )
+
+        except psycopg.Error as e:
+
+            conn.rollback()
+
+            logging.error(
+                f"Reset request review database error: {e}"
+            )
+
+            return False, (
+                "Failed to review reset request "
+                "due to a database error."
+            )
+
+        finally:
+
+            cursor.close()
+            conn.close()
 
     # ======================================================
     # GET REQUESTS
@@ -282,19 +355,32 @@ class ResetController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT
-                request_id,
-                username,
-                email,
-                requested_at,
-                status
-            FROM password_reset_requests
-            ORDER BY request_id DESC
-        """)
+        try:
 
-        rows = cursor.fetchall()
+            cursor.execute("""
+                SELECT
+                    request_id,
+                    username,
+                    email,
+                    requested_at,
+                    status
+                FROM password_reset_requests
+                ORDER BY request_id DESC
+            """)
 
-        conn.close()
+            rows = cursor.fetchall()
 
-        return rows
+            return rows
+
+        except psycopg.Error as e:
+
+            logging.error(
+                f"Get reset requests database error: {e}"
+            )
+
+            return []
+
+        finally:
+
+            cursor.close()
+            conn.close()

@@ -1,8 +1,10 @@
-import sqlite3
+import psycopg
 import csv
 import logging
 
 from datetime import datetime
+
+from models.database import get_connection
 
 DB_NAME = "hardware_inventory.db"
 
@@ -20,7 +22,7 @@ class InventoryController:
 
     def connect(self):
 
-        return sqlite3.connect(self.db_name)
+        return get_connection()
 
     # ======================================================
     # HARDWARE STATUS
@@ -177,7 +179,7 @@ class InventoryController:
             cursor.execute("""
                 SELECT item_id
                 FROM hardware
-                WHERE LOWER(item_name) = LOWER(?)
+                WHERE LOWER(item_name) = LOWER(%s)
             """, (name,))
 
             if cursor.fetchone():
@@ -198,7 +200,7 @@ class InventoryController:
                     unit_price,
                     status
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (
                 name,
                 category,
@@ -221,7 +223,7 @@ class InventoryController:
                 "Hardware added successfully."
             )
 
-        except sqlite3.Error as e:
+        except psycopg.Error as e:
 
             conn.rollback()
 
@@ -307,7 +309,7 @@ class InventoryController:
             cursor.execute("""
                 SELECT item_id
                 FROM hardware
-                WHERE item_id = ?
+                WHERE item_id = %s
             """, (item_id,))
 
             item = cursor.fetchone()
@@ -334,13 +336,13 @@ class InventoryController:
             cursor.execute("""
                 UPDATE hardware
                 SET
-                    item_name = ?,
-                    category = ?,
-                    quantity = ?,
-                    available_quantity = ?,
-                    unit_price = ?,
-                    status = ?
-                WHERE item_id = ?
+                    item_name = %s,
+                    category = %s,
+                    quantity = %s,
+                    available_quantity = %s,
+                    unit_price = %s,
+                    status = %s
+                WHERE item_id = %s
             """, (
                 name,
                 category,
@@ -367,7 +369,7 @@ class InventoryController:
                 "Hardware updated successfully."
             )
 
-        except sqlite3.Error as e:
+        except psycopg.Error as e:
 
             conn.rollback()
 
@@ -406,7 +408,7 @@ class InventoryController:
             cursor.execute("""
                 SELECT item_name
                 FROM hardware
-                WHERE item_id = ?
+                WHERE item_id = %s
             """, (item_id,))
 
             item = cursor.fetchone()
@@ -422,7 +424,7 @@ class InventoryController:
                 FROM borrow_request_items bri
                 JOIN borrow_requests br
                     ON bri.request_id = br.request_id
-                WHERE bri.item_id = ?
+                WHERE bri.item_id = %s
                 AND br.status IN
                 (
                     'PENDING',
@@ -436,7 +438,7 @@ class InventoryController:
             cursor.execute("""
                 SELECT COUNT(*)
                 FROM borrow_requests
-                WHERE item_id = ?
+                WHERE item_id = %s
                 AND status IN
                 (
                     'PENDING',
@@ -457,7 +459,7 @@ class InventoryController:
 
             cursor.execute("""
                 DELETE FROM hardware
-                WHERE item_id = ?
+                WHERE item_id = %s
             """, (item_id,))
 
             conn.commit()
@@ -466,7 +468,7 @@ class InventoryController:
                 "Hardware deleted successfully."
             )
 
-        except sqlite3.Error as e:
+        except psycopg.Error as e:
 
             conn.rollback()
 
@@ -500,9 +502,9 @@ class InventoryController:
 
         conditions = [
             """(
-                LOWER(item_name) LIKE ?
-                OR LOWER(category) LIKE ?
-                OR LOWER(status) LIKE ?
+                LOWER(item_name) LIKE %s
+                OR LOWER(category) LIKE %s
+                OR LOWER(status) LIKE %s
             )"""
         ]
 
@@ -515,7 +517,7 @@ class InventoryController:
         if category and category != "All Categories":
 
             conditions.append(
-                "category = ?"
+                "category = %s"
             )
 
             params.append(category)
@@ -523,7 +525,7 @@ class InventoryController:
         if status and status != "All Statuses":
 
             conditions.append(
-                "status = ?"
+                "status = %s"
             )
 
             params.append(status)
@@ -670,7 +672,7 @@ class InventoryController:
 
         try:
 
-            conn.execute("BEGIN IMMEDIATE")
+            # psycopg starts a transaction automatically
 
             cursor = conn.cursor()
 
@@ -700,7 +702,7 @@ class InventoryController:
                             quantity
                         )
                     FROM hardware
-                    WHERE item_id = ?
+                    WHERE item_id = %s
                 """, (item_id,))
 
                 hardware = cursor.fetchone()
@@ -758,9 +760,10 @@ class InventoryController:
                 )
                 VALUES
                 (
-                    ?, ?, ?, ?, ?, ?, ?, ?, NULL,
-                    'PENDING', ?
+                    %s, %s, %s, %s, %s, %s, %s, %s, NULL,
+                    'PENDING', %s
                 )
+                RETURNING request_id
             """, (
                 username,
                 student_number,
@@ -773,7 +776,7 @@ class InventoryController:
                 requested_at
             ))
 
-            request_id = cursor.lastrowid
+            request_id = cursor.fetchone()[0]
 
             for item_id, quantity, item_name in validated_items:
 
@@ -784,7 +787,7 @@ class InventoryController:
                         item_id,
                         quantity
                     )
-                    VALUES (?, ?, ?)
+                    VALUES (%s, %s, %s)
                 """, (
                     request_id,
                     item_id,
@@ -808,7 +811,7 @@ class InventoryController:
                 f"ADMIN approval."
             )
 
-        except (sqlite3.Error, ValueError) as e:
+        except (psycopg.Error, ValueError) as e:
 
             conn.rollback()
 
@@ -850,7 +853,7 @@ class InventoryController:
             FROM borrow_request_items bri
             JOIN hardware h
                 ON bri.item_id = h.item_id
-            WHERE bri.request_id = ?
+            WHERE bri.request_id = %s
             ORDER BY bri.borrow_item_id
         """, (request_id,))
 
@@ -875,7 +878,7 @@ class InventoryController:
                 FROM borrow_requests br
                 JOIN hardware h
                     ON br.item_id = h.item_id
-                WHERE br.request_id = ?
+                WHERE br.request_id = %s
             """, (request_id,))
 
             rows = cursor.fetchall()
@@ -938,7 +941,7 @@ class InventoryController:
                 return_requested_at,
                 returned_at
             FROM borrow_requests
-            WHERE LOWER(username) = LOWER(?)
+            WHERE LOWER(username) = LOWER(%s)
             ORDER BY request_id DESC
         """, (username.strip(),))
 
@@ -1016,7 +1019,7 @@ class InventoryController:
                     returned_at,
                     return_confirmed_by
                 FROM borrow_requests
-                WHERE status = ?
+                WHERE status = %s
                 ORDER BY request_id DESC
             """, (status,))
 
@@ -1131,14 +1134,14 @@ class InventoryController:
 
         try:
 
-            conn.execute("BEGIN IMMEDIATE")
+            # psycopg starts a transaction automatically
 
             cursor = conn.cursor()
 
             cursor.execute("""
                 SELECT status
                 FROM borrow_requests
-                WHERE request_id = ?
+                WHERE request_id = %s
             """, (request_id,))
 
             request = cursor.fetchone()
@@ -1190,9 +1193,9 @@ class InventoryController:
                     UPDATE borrow_requests
                     SET
                         status = 'REJECTED',
-                        reviewed_at = ?,
-                        reviewed_by = ?
-                    WHERE request_id = ?
+                        reviewed_at = %s,
+                        reviewed_by = %s
+                    WHERE request_id = %s
                     AND status = 'PENDING'
                 """, (
                     reviewed_at,
@@ -1231,7 +1234,7 @@ class InventoryController:
                             quantity
                         )
                     FROM hardware
-                    WHERE item_id = ?
+                    WHERE item_id = %s
                 """, (item_id,))
 
                 hardware = cursor.fetchone()
@@ -1268,9 +1271,9 @@ class InventoryController:
                     UPDATE hardware
                     SET
                         available_quantity =
-                            available_quantity - ?
-                    WHERE item_id = ?
-                    AND available_quantity >= ?
+                            available_quantity - %s
+                    WHERE item_id = %s
+                    AND available_quantity >= %s
                 """, (
                     quantity,
                     item_id,
@@ -1290,7 +1293,7 @@ class InventoryController:
                     SELECT
                         available_quantity
                     FROM hardware
-                    WHERE item_id = ?
+                    WHERE item_id = %s
                 """, (item_id,))
 
                 hardware_row = cursor.fetchone()
@@ -1314,8 +1317,8 @@ class InventoryController:
 
                 cursor.execute("""
                     UPDATE hardware
-                    SET status = ?
-                    WHERE item_id = ?
+                    SET status = %s
+                    WHERE item_id = %s
                 """, (
                     status_text,
                     item_id
@@ -1329,9 +1332,9 @@ class InventoryController:
                 UPDATE borrow_requests
                 SET
                     status = 'APPROVED',
-                    reviewed_at = ?,
-                    reviewed_by = ?
-                WHERE request_id = ?
+                    reviewed_at = %s,
+                    reviewed_by = %s
+                WHERE request_id = %s
                 AND status = 'PENDING'
             """, (
                 reviewed_at,
@@ -1354,7 +1357,7 @@ class InventoryController:
                 f"approved successfully."
             )
 
-        except (sqlite3.Error, ValueError, TypeError) as e:
+        except (psycopg.Error, ValueError, TypeError) as e:
 
             conn.rollback()
 
@@ -1398,8 +1401,8 @@ class InventoryController:
             cursor.execute("""
                 SELECT status
                 FROM borrow_requests
-                WHERE request_id = ?
-                AND LOWER(username) = LOWER(?)
+                WHERE request_id = %s
+                AND LOWER(username) = LOWER(%s)
             """, (
                 request_id,
                 username.strip()
@@ -1428,9 +1431,9 @@ class InventoryController:
                 UPDATE borrow_requests
                 SET
                     status = 'RETURN_REQUESTED',
-                    return_requested_at = ?
-                WHERE request_id = ?
-                AND LOWER(username) = LOWER(?)
+                    return_requested_at = %s
+                WHERE request_id = %s
+                AND LOWER(username) = LOWER(%s)
                 AND status = 'APPROVED'
             """, (
                 return_requested_at,
@@ -1445,7 +1448,7 @@ class InventoryController:
                 "Please wait for ADMIN confirmation."
             )
 
-        except sqlite3.Error as e:
+        except psycopg.Error as e:
 
             conn.rollback()
 
@@ -1485,14 +1488,14 @@ class InventoryController:
 
         try:
 
-            conn.execute("BEGIN IMMEDIATE")
+            # psycopg starts a transaction automatically
 
             cursor = conn.cursor()
 
             cursor.execute("""
                 SELECT status
                 FROM borrow_requests
-                WHERE request_id = ?
+                WHERE request_id = %s
             """, (request_id,))
 
             request = cursor.fetchone()
@@ -1540,12 +1543,12 @@ class InventoryController:
                     SET
                         available_quantity =
                             CASE
-                                WHEN available_quantity + ?
+                                WHEN available_quantity + %s
                                      > quantity
                                 THEN quantity
-                                ELSE available_quantity + ?
+                                ELSE available_quantity + %s
                             END
-                    WHERE item_id = ?
+                    WHERE item_id = %s
                 """, (
                     quantity,
                     quantity,
@@ -1564,7 +1567,7 @@ class InventoryController:
                 cursor.execute("""
                     SELECT available_quantity
                     FROM hardware
-                    WHERE item_id = ?
+                    WHERE item_id = %s
                 """, (item_id,))
 
                 hardware_row = cursor.fetchone()
@@ -1588,8 +1591,8 @@ class InventoryController:
 
                 cursor.execute("""
                     UPDATE hardware
-                    SET status = ?
-                    WHERE item_id = ?
+                    SET status = %s
+                    WHERE item_id = %s
                 """, (
                     status_text,
                     item_id
@@ -1603,9 +1606,9 @@ class InventoryController:
                 UPDATE borrow_requests
                 SET
                     status = 'RETURNED',
-                    returned_at = ?,
-                    return_confirmed_by = ?
-                WHERE request_id = ?
+                    returned_at = %s,
+                    return_confirmed_by = %s
+                WHERE request_id = %s
                 AND status = 'RETURN_REQUESTED'
             """, (
                 returned_at,
@@ -1628,7 +1631,7 @@ class InventoryController:
                 f"confirmed successfully."
             )
 
-        except (sqlite3.Error, ValueError, TypeError) as e:
+        except (psycopg.Error, ValueError, TypeError) as e:
 
             conn.rollback()
 
@@ -1668,14 +1671,14 @@ class InventoryController:
 
         try:
 
-            conn.execute("BEGIN IMMEDIATE")
+            # psycopg starts a transaction automatically
 
             cursor = conn.cursor()
 
             cursor.execute("""
                 SELECT status
                 FROM borrow_requests
-                WHERE request_id = ?
+                WHERE request_id = %s
             """, (request_id,))
 
             request = cursor.fetchone()
@@ -1705,9 +1708,9 @@ class InventoryController:
                 UPDATE borrow_requests
                 SET
                     status = 'APPROVED',
-                    reviewed_at = ?,
-                    reviewed_by = ?
-                WHERE request_id = ?
+                    reviewed_at = %s,
+                    reviewed_by = %s
+                WHERE request_id = %s
                 AND status = 'RETURN_REQUESTED'
             """, (
                 reviewed_at,
@@ -1731,7 +1734,7 @@ class InventoryController:
                 f"The hardware remains borrowed."
             )
 
-        except sqlite3.Error as e:
+        except psycopg.Error as e:
 
             conn.rollback()
 

@@ -278,6 +278,77 @@ def reset():
             ""
         ).strip()
 
+        new_password = request.form.get(
+            "new_password",
+            ""
+        )
+
+        confirm_password = request.form.get(
+            "confirm_password",
+            ""
+        )
+
+        # Check whether this email already has
+        # an ADMIN-approved reset request
+        has_approved = (
+            web.reset_controller
+            .has_approved_request(email)
+        )
+
+        if has_approved:
+
+            # Passwords must match
+            if new_password != confirm_password:
+
+                flash(
+                    "New passwords do not match.",
+                    "danger"
+                )
+
+                return redirect(
+                    url_for("reset")
+                )
+
+            # Complete the approved password reset
+            success, message = (
+                web.reset_controller
+                .perform_reset(
+                    email,
+                    new_password
+                )
+            )
+
+        else:
+
+            # No approved request yet:
+            # submit a request for ADMIN approval
+            success, message = (
+                web.reset_controller
+                .submit_request(
+                    email
+                )
+            )
+
+        flash(
+            message,
+            "success" if success else "danger"
+        )
+
+        return redirect(
+            url_for("reset")
+        )
+
+    return render_template(
+        "reset.html"
+    )
+
+    if request.method == "POST":
+
+        email = request.form.get(
+            "email",
+            ""
+        ).strip()
+
         success, message = (
             web.reset_controller.submit_request(
                 email

@@ -1,7 +1,8 @@
-import sqlite3
 import bcrypt
 import logging
 import re
+import time
+import psycopg
 
 from models.database import get_connection
 
@@ -19,7 +20,6 @@ class AuthController:
         global _current_app
 
         self.app = app
-
         _current_app = app
 
     # ======================================================
@@ -147,7 +147,7 @@ class AuthController:
             cursor.execute("""
                 SELECT id
                 FROM users
-                WHERE LOWER(email) = LOWER(?)
+                WHERE LOWER(email) = LOWER(%s)
             """, (email,))
 
             if cursor.fetchone():
@@ -161,7 +161,7 @@ class AuthController:
             cursor.execute("""
                 SELECT id
                 FROM users
-                WHERE LOWER(username) = LOWER(?)
+                WHERE LOWER(username) = LOWER(%s)
             """, (username,))
 
             if cursor.fetchone():
@@ -190,7 +190,7 @@ class AuthController:
                     locked_until,
                     is_locked
                 )
-                VALUES (?, ?, ?, ?, 0, 0, 0)
+                VALUES (%s, %s, %s, %s, 0, 0, 0)
             """, (
                 username,
                 password_hash,
@@ -209,14 +209,29 @@ class AuthController:
                 "Registration successful."
             )
 
-        except sqlite3.IntegrityError:
+        except psycopg.IntegrityError:
+
+            conn.rollback()
 
             return False, (
                 "Username or email already exists."
             )
 
+        except psycopg.Error as e:
+
+            conn.rollback()
+
+            logging.error(
+                f"Registration database error: {e}"
+            )
+
+            return False, (
+                "Registration failed due to a database error."
+            )
+
         finally:
 
+            cursor.close()
             conn.close()
 
     # ======================================================
@@ -234,127 +249,197 @@ class AuthController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT
+        try:
+
+            cursor.execute("""
+                SELECT
+                    password_hash,
+                    failed_attempts,
+                    is_locked,
+                    locked_until,
+                    role
+                FROM users
+                WHERE LOWER(username) = LOWER(%s)
+            """, (username,))
+
+            user = cursor.fetchone()
+
+            if not user:
+
+                return False, (
+                    "Invalid username or password."
+                )
+
+            (
                 password_hash,
                 failed_attempts,
                 is_locked,
+                locked_until,
                 role
-            FROM users
-            WHERE LOWER(username) = LOWER(?)
-        """, (username,))
+            ) = user
 
-        user = cursor.fetchone()
+            # --------------------------------------------------
+            # CHECK TEMPORARY ACCOUNT LOCK
+            # --------------------------------------------------
 
-        if not user:
+            if is_locked:
 
-            conn.close()
+                current_time = time.time()
 
-            return False, (
-                "Invalid username or password."
-            )
+                # Account is still within the 30-second lock
+                if locked_until and current_time < locked_until:
 
-        (
-            password_hash,
-            failed_attempts,
-            is_locked,
-            role
-        ) = user
+                    remaining_seconds = max(
+                        1,
+                        int(locked_until - current_time + 0.999)
+                    )
 
-        # Check locked account
+                    return False, (
+                        "Your account is temporarily locked.\n\n"
+                        f"Try again in {remaining_seconds} seconds."
+                    )
 
-        if is_locked:
+                # 30-second lock has expired.
+                # Automatically unlock the account.
 
-            conn.close()
+                cursor.execute("""
+                    UPDATE users
+                    SET
+                        failed_attempts = 0,
+                        is_locked = 0,
+                        locked_until = 0
+                    WHERE LOWER(username) = LOWER(%s)
+                """, (username,))
 
-            return False, (
-                "This account is locked.\n\n"
-                "Please use Reset / Unlock Password."
-            )
+                conn.commit()
 
-        # Check password
+                failed_attempts = 0
+                is_locked = 0
+                locked_until = 0
 
-        try:
+                logging.info(
+                    f"Temporary account lock expired: {username}"
+                )
 
-            correct = bcrypt.checkpw(
-                password.encode("utf-8"),
-                password_hash.encode("utf-8")
-            )
+            # --------------------------------------------------
+            # CHECK PASSWORD
+            # --------------------------------------------------
 
-        except ValueError:
+            try:
 
-            correct = False
+                correct = bcrypt.checkpw(
+                    password.encode("utf-8"),
+                    password_hash.encode("utf-8")
+                )
 
-        # Successful login
+            except ValueError:
 
-        if correct:
+                correct = False
+
+            # --------------------------------------------------
+            # SUCCESSFUL LOGIN
+            # --------------------------------------------------
+
+            if correct:
+
+                cursor.execute("""
+                    UPDATE users
+                    SET
+                        failed_attempts = 0,
+                        is_locked = 0,
+                        locked_until = 0
+                    WHERE LOWER(username) = LOWER(%s)
+                """, (username,))
+
+                conn.commit()
+
+                logging.info(
+                    f"Successful login: "
+                    f"{username} | role={role}"
+                )
+
+                return True, role
+
+            # --------------------------------------------------
+            # FAILED LOGIN
+            # --------------------------------------------------
+
+            failed_attempts += 1
+
+            # --------------------------------------------------
+            # LOCK AFTER 3 FAILURES FOR 30 SECONDS
+            # --------------------------------------------------
+
+            if failed_attempts >= 3:
+
+                lock_expiration = (
+                    time.time() + 30
+                )
+
+                cursor.execute("""
+                    UPDATE users
+                    SET
+                        failed_attempts = 3,
+                        is_locked = 1,
+                        locked_until = %s
+                    WHERE LOWER(username) = LOWER(%s)
+                """, (
+                    lock_expiration,
+                    username
+                ))
+
+                conn.commit()
+
+                logging.warning(
+                    f"Account temporarily locked for "
+                    f"30 seconds: {username}"
+                )
+
+                return False, (
+                    "Your account has been temporarily locked "
+                    "for 30 seconds after 3 failed login attempts."
+                )
+
+            # --------------------------------------------------
+            # UPDATE FAILED ATTEMPTS
+            # --------------------------------------------------
 
             cursor.execute("""
                 UPDATE users
-                SET failed_attempts = 0
-                WHERE LOWER(username) = LOWER(?)
-            """, (username,))
+                SET failed_attempts = %s
+                WHERE LOWER(username) = LOWER(%s)
+            """, (
+                failed_attempts,
+                username
+            ))
 
             conn.commit()
-            conn.close()
 
-            logging.info(
-                f"Successful login: "
-                f"{username} | role={role}"
-            )
-
-            return True, role
-
-        # Failed login
-
-        failed_attempts += 1
-
-        # Lock after 3 failures
-
-        if failed_attempts >= 3:
-
-            cursor.execute("""
-                UPDATE users
-                SET
-                    failed_attempts = 3,
-                    is_locked = 1
-                WHERE LOWER(username) = LOWER(?)
-            """, (username,))
-
-            conn.commit()
-            conn.close()
-
-            logging.warning(
-                f"Account locked: {username}"
+            remaining = (
+                3 - failed_attempts
             )
 
             return False, (
-                "Your account has been locked "
-                "after 3 failed login attempts."
+                "Invalid username or password.\n\n"
+                f"Attempts remaining: {remaining}"
             )
 
-        # Update failed attempts
+        except psycopg.Error as e:
 
-        cursor.execute("""
-            UPDATE users
-            SET failed_attempts = ?
-            WHERE LOWER(username) = LOWER(?)
-        """, (
-            failed_attempts,
-            username
-        ))
+            conn.rollback()
 
-        conn.commit()
-        conn.close()
+            logging.error(
+                f"Login database error: {e}"
+            )
 
-        remaining = (
-            3 - failed_attempts
-        )
+            return False, (
+                "Login failed due to a database error."
+            )
 
-        return False, (
-            "Invalid username or password.\n\n"
-            f"Attempts remaining: {remaining}"
-        )
+        finally:
+
+            cursor.close()
+            conn.close()
 
     # ======================================================
     # GET USER INFO (Task 5 — Profile & Security)
@@ -365,35 +450,48 @@ class AuthController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT
-                username,
-                email,
-                role
-            FROM users
-            WHERE LOWER(username) = LOWER(?)
-        """, (username.strip(),))
+        try:
 
-        row = cursor.fetchone()
+            cursor.execute("""
+                SELECT
+                    username,
+                    email,
+                    role
+                FROM users
+                WHERE LOWER(username) = LOWER(%s)
+            """, (username.strip(),))
 
-        conn.close()
+            row = cursor.fetchone()
 
-        if not row:
+            if not row:
+                return None
+
+            return {
+                "username": row[0],
+                "email": row[1],
+                "role": row[2]
+            }
+
+        except psycopg.Error as e:
+
+            logging.error(
+                f"Get user info database error: {e}"
+            )
+
             return None
 
-        return {
-            "username": row[0],
-            "email": row[1],
-            "role": row[2]
-        }
+        finally:
+
+            cursor.close()
+            conn.close()
 
     # ======================================================
     # DIRECT PASSWORD CHANGE (Task 5)
     # ======================================================
     #
-    # This is distinct from the Reset / Unlock flow: it is
-    # used by an already-authenticated user from
-    # My Profile & Security, and requires the user's current
+    # This is distinct from the Reset / Unlock flow:
+    # it is used by an already-authenticated user from
+    # My Profile & Security and requires the user's current
     # password rather than ADMIN approval.
     # ======================================================
 
@@ -409,74 +507,92 @@ class AuthController:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT password_hash
-            FROM users
-            WHERE LOWER(username) = LOWER(?)
-        """, (username,))
-
-        row = cursor.fetchone()
-
-        if not row:
-
-            conn.close()
-
-            return False, "Account not found."
-
-        password_hash = row[0]
-
         try:
 
-            correct = bcrypt.checkpw(
-                current_password.encode("utf-8"),
-                password_hash.encode("utf-8")
+            cursor.execute("""
+                SELECT password_hash
+                FROM users
+                WHERE LOWER(username) = LOWER(%s)
+            """, (username,))
+
+            row = cursor.fetchone()
+
+            if not row:
+
+                return False, (
+                    "Account not found."
+                )
+
+            password_hash = row[0]
+
+            try:
+
+                correct = bcrypt.checkpw(
+                    current_password.encode("utf-8"),
+                    password_hash.encode("utf-8")
+                )
+
+            except ValueError:
+
+                correct = False
+
+            if not correct:
+
+                return False, (
+                    "Current password is incorrect."
+                )
+
+            valid, message = (
+                self.validate_password(
+                    new_password
+                )
             )
 
-        except ValueError:
+            if not valid:
 
-            correct = False
+                return False, message
 
-        if not correct:
+            new_hash = bcrypt.hashpw(
+                new_password.encode("utf-8"),
+                bcrypt.gensalt()
+            ).decode("utf-8")
 
+            cursor.execute("""
+                UPDATE users
+                SET password_hash = %s
+                WHERE LOWER(username) = LOWER(%s)
+            """, (
+                new_hash,
+                username
+            ))
+
+            conn.commit()
+
+            logging.info(
+                f"Password changed directly by user: {username}"
+            )
+
+            return True, (
+                "Password changed successfully.\n"
+                "Please log in again with your new password."
+            )
+
+        except psycopg.Error as e:
+
+            conn.rollback()
+
+            logging.error(
+                f"Password change database error: {e}"
+            )
+
+            return False, (
+                "Password change failed due to a database error."
+            )
+
+        finally:
+
+            cursor.close()
             conn.close()
-
-            return False, "Current password is incorrect."
-
-        valid, message = self.validate_password(
-            new_password
-        )
-
-        if not valid:
-
-            conn.close()
-
-            return False, message
-
-        new_hash = bcrypt.hashpw(
-            new_password.encode("utf-8"),
-            bcrypt.gensalt()
-        ).decode("utf-8")
-
-        cursor.execute("""
-            UPDATE users
-            SET password_hash = ?
-            WHERE LOWER(username) = LOWER(?)
-        """, (
-            new_hash,
-            username
-        ))
-
-        conn.commit()
-        conn.close()
-
-        logging.info(
-            f"Password changed directly by user: {username}"
-        )
-
-        return True, (
-            "Password changed successfully.\n"
-            "Please log in again with your new password."
-        )
 
     # ======================================================
     # LOGOUT
