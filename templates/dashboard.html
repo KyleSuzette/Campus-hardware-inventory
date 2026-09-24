@@ -2286,6 +2286,129 @@
 
         </div>
 
+            <!-- ==================================================
+             ADMIN BORROWING HISTORY
+             ================================================== -->
+
+        <div class="dashboard-section">
+
+            <h2>
+                Borrowing History
+            </h2>
+
+            <p>
+                Complete borrowing records for all students.
+            </p>
+
+            {% if admin_borrow_history %}
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Request ID</th>
+                                <th>Borrower</th>
+                                <th>Student Number</th>
+                                <th>Hardware</th>
+                                <th>Quantity</th>
+                                <th>Purpose</th>
+                                <th>Course</th>
+                                <th>Borrow Date</th>
+                                <th>Expected Return</th>
+                                <th>Status</th>
+                                <th>Reviewed By</th>
+                                <th>Returned At</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            {% for borrow_request in admin_borrow_history %}
+
+                                <tr>
+
+                                    <td>
+                                        {{ borrow_request["request_id"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["username"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["student_number"] or "-" }}
+                                    </td>
+
+                                    <td>
+                                        {% for item in borrow_request["items"] %}
+                                            {{ item[1] }}
+                                            {% if not loop.last %}
+                                                <br>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <td>
+                                        {% for item in borrow_request["items"] %}
+                                            {{ item[2] }}
+                                            {% if not loop.last %}
+                                                <br>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["purpose"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["course"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["borrow_date"] }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["expected_return_date"] }}
+                                    </td>
+
+                                    <td>
+                                        <span class="status-badge
+                                            status-{{ borrow_request['status']|lower|replace('_', '-') }}">
+                                            {{ borrow_request["status"]|replace("_", " ") }}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["reviewed_by"] or "-" }}
+                                    </td>
+
+                                    <td>
+                                        {{ borrow_request["returned_at"] or "-" }}
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-message">
+                    No borrowing history found.
+                </div>
+
+            {% endif %}
+
+        </div>
 
         <!-- ==================================================
              PASSWORD RESET REQUESTS

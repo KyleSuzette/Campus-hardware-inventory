@@ -500,6 +500,12 @@ def dashboard():
         .get_borrow_requests("APPROVED")
     )
 
+    admin_borrow_history = []
+    if role == "ADMIN":
+        admin_borrow_history = (
+            web.inventory_controller
+            .get_borrow_requests()
+        )
 
     pending_borrows = (
         web.inventory_controller
@@ -607,6 +613,8 @@ def dashboard():
         pending_borrow_requests=pending_borrow_requests,
 
         all_loans=all_loans,
+        
+        admin_borrow_history=admin_borrow_history,
 
         pending_resets=pending_resets,
 
