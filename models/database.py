@@ -29,7 +29,11 @@ def get_connection():
             "before starting the application."
         )
 
-    return psycopg.connect(database_url)
+    return psycopg.connect(
+        database_url,
+        connect_timeout=60,
+        sslmode="require"
+    )
 
 
 # ======================================================
