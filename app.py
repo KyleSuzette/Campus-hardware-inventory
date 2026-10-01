@@ -320,15 +320,48 @@ def verify_otp(action):
                 return redirect(url_for("login"))
                 
             elif action == "reset":
-                # OTP matches, submit the reset request to Admin
-                ok, msg = AuthController.submit_password_reset_request(data['username'], data['email'], data['new_password'])
+
+                email = data['email']
+                new_password = data['new_password']
+
+                # Check whether ADMIN already approved
+                # a previous password-reset request.
+                has_approved = (
+                    web.reset_controller
+                    .has_approved_request(email)
+                )
+
+                if has_approved:
+
+                    # Email OTP is verified and ADMIN already approved.
+                    # Reset the password and unlock the account.
+                    ok, msg = (
+                        web.reset_controller
+                        .perform_reset(
+                            email,
+                            new_password
+                        )
+                    )
+
+                else:
+
+                    # Email OTP is verified but ADMIN approval
+                    # is still required.
+                    ok, msg = (
+                        web.reset_controller
+                        .submit_request(
+                            email
+                        )
+                    )
+
                 session.pop(session_key, None)
-                flash("Email verified! Your password reset request has been submitted.", "success" if ok else "danger")
+
+                flash(
+                    msg,
+                    "success" if ok else "danger"
+                )
+
                 return redirect(url_for("login"))
-        else:
-            flash("Invalid OTP code. Try again.", "danger")
-            
-    return render_template("otp_verify.html", action_url=url_for('verify_otp', action=action))
 
 
 
