@@ -303,11 +303,11 @@ def verify_otp(action):
             if action == "register":
 
                 # OTP matches, create the user
-                ok, msg = web.auth_controller.register_user(
+                ok, msg = web.auth_controller.register(
                     data['username'],
                     data['email'],
                     data['password'],
-                    role=data['role']
+                    data['role']
                 )
 
                 session.pop(session_key, None)
