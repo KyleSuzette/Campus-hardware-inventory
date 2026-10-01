@@ -16,8 +16,7 @@ Password Reset - Campus Hardware Laboratory
             Request access to reset your account password
         </p>
 
-
-        <form method="POST" action="{{ url_for('reset') }}">
+        <form method="POST" action="{{ url_for('reset_request') }}">
 
             <div class="form-group">
                 <label for="username">
@@ -31,7 +30,6 @@ Password Reset - Campus Hardware Laboratory
                     required>
             </div>
 
-
             <div class="form-group">
                 <label for="email">
                     Email Address
@@ -43,7 +41,6 @@ Password Reset - Campus Hardware Laboratory
                     name="email"
                     required>
             </div>
-
 
             <div class="form-group">
                 <label for="new_password">
@@ -57,7 +54,6 @@ Password Reset - Campus Hardware Laboratory
                     required>
             </div>
 
-
             <div class="form-group">
                 <label for="confirm_password">
                     Confirm New Password
@@ -70,11 +66,14 @@ Password Reset - Campus Hardware Laboratory
                     required>
             </div>
 
-
-            <button class="primary wide" type="submit" style="background-color: #d67a00; border-color: #d67a00; color: white;">Send Verification Code <span>→</span></button>
+            <button
+                class="primary wide"
+                type="submit"
+                style="background-color: #d67a00; border-color: #d67a00; color: white;">
+                Send Verification Code <span>→</span>
+            </button>
 
         </form>
-
 
         <div class="auth-links">
 
