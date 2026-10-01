@@ -299,11 +299,24 @@ def verify_otp(action):
         data = session[session_key]
         
         if user_otp == data['otp']:
+
             if action == "register":
+
                 # OTP matches, create the user
-                ok, msg = web.auth_controller.register_user(data['username'], data['email'], data['password'], role=data['role'])
+                ok, msg = web.auth_controller.register_user(
+                    data['username'],
+                    data['email'],
+                    data['password'],
+                    role=data['role']
+                )
+
                 session.pop(session_key, None)
-                flash("Account successfully verified and created!", "success" if ok else "warning")
+
+                flash(
+                    "Account successfully verified and created!",
+                    "success" if ok else "warning"
+                )
+
                 return redirect(url_for("login"))
                 
             elif action == "reset":
