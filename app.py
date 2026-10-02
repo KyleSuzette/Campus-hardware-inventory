@@ -287,22 +287,41 @@ def reset_request():
 
 @app.route("/verify-otp/<action>", methods=["GET", "POST"])
 def verify_otp(action):
+
     # Determine which session data to use
-    session_key = 'pending_user' if action == "register" else 'pending_reset'
-        
+    session_key = (
+        'pending_user'
+        if action == "register"
+        else 'pending_reset'
+    )
+
     if session_key not in session:
-        flash("Session expired. Please try again.", "warning")
-        return redirect(url_for("login"))
-        
+
+        flash(
+            "Session expired. Please try again.",
+            "warning"
+        )
+
+        return redirect(
+            url_for("login")
+        )
+
     if request.method == "POST":
-        user_otp = request.form.get("otp_code", "").strip()
+
+        user_otp = request.form.get(
+            "otp_code",
+            ""
+        ).strip()
+
         data = session[session_key]
-        
+
         if user_otp == data['otp']:
 
+            # ==========================================
+            # REGISTER
+            # ==========================================
             if action == "register":
 
-                # OTP matches, create the user
                 ok, msg = web.auth_controller.register(
                     data['username'],
                     data['email'],
@@ -310,60 +329,69 @@ def verify_otp(action):
                     data['role']
                 )
 
-                session.pop(session_key, None)
-
-                flash(
-                    "Account successfully verified and created!",
-                    "success" if ok else "warning"
+                session.pop(
+                    session_key,
+                    None
                 )
 
-                return redirect(url_for("login"))
-                
-            elif action == "reset":
-
-                email = data['email']
-                new_password = data['new_password']
-
-                # Check whether ADMIN already approved
-                # a previous password-reset request.
-                has_approved = (
-                    web.reset_controller
-                    .has_approved_request(email)
-                )
-
-                if has_approved:
-
-                    # Email OTP is verified and ADMIN already approved.
-                    # Reset the password and unlock the account.
-                    ok, msg = (
-                        web.reset_controller
-                        .perform_reset(
-                            email,
-                            new_password
-                        )
-                    )
-
-                else:
-
-                    # Email OTP is verified but ADMIN approval
-                    # is still required.
-                    ok, msg = (
-                        web.reset_controller
-                        .submit_request(
-                            email
-                        )
-                    )
-
-                session.pop(session_key, None)
-
                 flash(
-                    msg,
+                    "Account successfully verified and created!"
+                    if ok
+                    else msg,
                     "success" if ok else "danger"
                 )
 
-                return redirect(url_for("login"))
+                if ok:
+                    return redirect(
+                        url_for("login")
+                    )
 
+                return redirect(
+                    url_for("register")
+                )
 
+            # ==========================================
+            # RESET / UNLOCK PASSWORD
+            # ==========================================
+            elif action == "reset":
+
+                ok, msg = (
+                    web.reset_controller
+                    .submit_request(
+                        data['email']
+                    )
+                )
+
+                session.pop(
+                    session_key,
+                    None
+                )
+
+                flash(
+                    "Email verified! Your password reset request has been submitted."
+                    if ok
+                    else msg,
+                    "success" if ok else "danger"
+                )
+
+                return redirect(
+                    url_for("login")
+                )
+
+        else:
+
+            flash(
+                "Invalid OTP code. Try again.",
+                "danger"
+            )
+
+    return render_template(
+        "otp_verify.html",
+        action_url=url_for(
+            "verify_otp",
+            action=action
+        )
+    )
 
 # ======================================================
 # DASHBOARD
